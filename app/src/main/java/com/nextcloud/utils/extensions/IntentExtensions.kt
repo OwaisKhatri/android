@@ -39,7 +39,7 @@ fun <T : Parcelable?> Intent.getParcelableArgument(key: String, type: Class<T>):
     return if (SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         this.getParcelableExtra(key, type)
     } else {
-        @Suppress( "DEPRECATION")
+        @Suppress("DEPRECATION")
         this.getParcelableExtra(key)
     }
 }
