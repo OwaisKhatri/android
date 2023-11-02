@@ -488,7 +488,7 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
             if (accountSetupBinding != null) {
                 accountSetupBinding.hostUrlInput.setText("");
             }
-            mServerInfo.mBaseUrl = AuthenticatorUrlUtils.normalizeUrlSuffix(loginUrlInfo.serverAddress);
+            mServerInfo.mBaseUrl = AuthenticatorUrlUtils.INSTANCE.normalizeUrlSuffix(loginUrlInfo.serverAddress);
             webViewUser = loginUrlInfo.username;
             webViewPassword = loginUrlInfo.password;
         } catch (Exception e) {
@@ -774,12 +774,12 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
 
         if (uri.length() != 0) {
             if (accountSetupBinding != null) {
-                uri = AuthenticatorUrlUtils.stripIndexPhpOrAppsFiles(uri);
+                uri = AuthenticatorUrlUtils.INSTANCE.stripIndexPhpOrAppsFiles(uri);
                 accountSetupBinding.hostUrlInput.setText(uri);
             }
 
             try {
-                uri = AuthenticatorUrlUtils.normalizeScheme(uri);
+                uri = AuthenticatorUrlUtils.INSTANCE.normalizeScheme(uri);
             } catch (IllegalArgumentException ex) {
                 // Let the Nextcloud library check the error of the malformed URI
                 Log_OC.e(TAG, "Invalid URL", ex);
@@ -803,7 +803,7 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
             Intent getServerInfoIntent = new Intent();
             getServerInfoIntent.setAction(OperationsService.ACTION_GET_SERVER_INFO);
             getServerInfoIntent.putExtra(OperationsService.EXTRA_SERVER_URL,
-                                         AuthenticatorUrlUtils.normalizeUrlSuffix(uri));
+                                         AuthenticatorUrlUtils.INSTANCE.normalizeUrlSuffix(uri));
 
             if (mOperationsServiceBinder != null) {
                 mWaitingForOpId = mOperationsServiceBinder.queueNewOperation(getServerInfoIntent);
@@ -1282,7 +1282,7 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
         // create and save new ownCloud account
         String lastPermanentLocation = authResult.getLastPermanentLocation();
         if (lastPermanentLocation != null) {
-            mServerInfo.mBaseUrl = AuthenticatorUrlUtils.trimWebdavSuffix(lastPermanentLocation);
+            mServerInfo.mBaseUrl = AuthenticatorUrlUtils.INSTANCE.trimWebdavSuffix(lastPermanentLocation);
         }
 
         Uri uri = Uri.parse(mServerInfo.mBaseUrl);
@@ -1479,7 +1479,7 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity
                         String prefix = getString(R.string.login_data_own_scheme) + PROTOCOL_SUFFIX + "login/";
                         LoginUrlInfo loginUrlInfo = parseLoginDataUrl(prefix, data.toString());
 
-                        mServerInfo.mBaseUrl = AuthenticatorUrlUtils.normalizeUrlSuffix(loginUrlInfo.serverAddress);
+                        mServerInfo.mBaseUrl = AuthenticatorUrlUtils.INSTANCE.normalizeUrlSuffix(loginUrlInfo.serverAddress);
                         webViewUser = loginUrlInfo.username;
                         webViewPassword = loginUrlInfo.password;
                         doOnResumeAndBound();
