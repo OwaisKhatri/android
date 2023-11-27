@@ -48,6 +48,7 @@ import com.owncloud.android.ui.fragment.SearchType
 import com.owncloud.android.utils.DisplayUtils
 import com.owncloud.android.utils.FileSortOrder
 import com.owncloud.android.utils.MimeTypeUtil
+import com.owncloud.android.utils.theme.ViewThemeUtils
 import me.zhanghai.android.fastscroll.PopupTextProvider
 import java.util.Calendar
 import java.util.Date
@@ -58,6 +59,7 @@ class GalleryAdapter(
     private val user: User,
     transferServiceGetter: ComponentsGetter,
     var columns: Int,
+    private val viewThemeUtils: ViewThemeUtils,
     private val defaultThumbnailSize: Int,
     private val clientFactory: ClientFactory,
     private val ocFileListDelegate: OCFileListDelegate,
@@ -87,6 +89,7 @@ class GalleryAdapter(
         } else {
             GalleryRowHolder(
                 GalleryRowBinding.inflate(LayoutInflater.from(parent.context), parent, false),
+                viewThemeUtils,
                 defaultThumbnailSize.toFloat(),
                 this,
                 user,
