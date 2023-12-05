@@ -22,7 +22,10 @@
  */
 package com.owncloud.android.ui.fragment
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.Configuration
 import android.os.AsyncTask
 import android.os.Bundle
@@ -32,6 +35,7 @@ import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.nextcloud.client.network.ClientFactory
@@ -97,6 +101,24 @@ class GalleryFragment : OCFileListFragment(), GalleryFragmentBottomSheetActions,
         } else {
             maxColumnSizePortrait
         }
+
+        registerRefreshSearchEventReceiver()
+    }
+
+    private fun registerRefreshSearchEventReceiver() {
+        val filter = IntentFilter(REFRESH_SEARCH_EVENT_RECEIVER)
+        LocalBroadcastManager.getInstance(requireContext()).registerReceiver(refreshSearchEventReceiver, filter)
+    }
+
+    private val refreshSearchEventReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            (activity as? FileDisplayActivity)?.startPhotoSearch(R.id.nav_gallery)
+        }
+    }
+
+    override fun onDestroyView() {
+        LocalBroadcastManager.getInstance(requireContext()).unregisterReceiver(refreshSearchEventReceiver)
+        super.onDestroyView()
     }
 
     override fun onPause() {
@@ -391,6 +413,7 @@ class GalleryFragment : OCFileListFragment(), GalleryFragmentBottomSheetActions,
         private const val MAX_ITEMS_PER_ROW = 10
         private const val FRAGMENT_TAG_BOTTOM_SHEET = "data"
         private const val SELECT_LOCATION_REQUEST_CODE = 212
+        const val REFRESH_SEARCH_EVENT_RECEIVER = "refreshSearchEventReceiver"
     }
 
     override fun openMedia(file: OCFile) {
