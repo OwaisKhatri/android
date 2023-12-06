@@ -221,8 +221,37 @@ public abstract class ToolbarActivity extends BaseActivity implements Injectable
      */
     @VisibleForTesting
     public final void hideInfoBox() {
+        if(preferences.getGlobalPaused()){
+            showInfoBox(R.string.upload_global_pause);
+            return;
+        }
+
         mInfoBox.setVisibility(View.GONE);
     }
+
+    /**
+     * shows the toolbar's info box with the pause text.
+     *
+     * Its the same box as for displaying connection info's e.g. no network connection
+     * Connection info's will be prioritized and pause info will only be displayed
+     * when nothing else is displayed
+     */
+    protected final void showPauseInfoBox() {
+        if(mInfoBox.getVisibility() == View.VISIBLE) return;
+        mInfoBox.setVisibility(View.VISIBLE);
+        mInfoBoxMessage.setText(getString(R.string.upload_global_pause));
+    }
+
+    /**
+     * Hides the toolbar's info box with pause text.
+     */
+    public final void hidePauseInfoBox() {
+        if(mInfoBoxMessage.getText() == getString(R.string.upload_global_pause)){
+            mInfoBox.setVisibility(View.GONE);
+        }
+    }
+
+
 
     public void setPreviewImageVisibility(boolean isVisibility) {
         if (mPreviewImage != null && mPreviewImageContainer != null) {

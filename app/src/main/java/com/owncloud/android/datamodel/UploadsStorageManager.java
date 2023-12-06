@@ -345,6 +345,24 @@ public class UploadsStorageManager extends Observable {
         return getUploads(null, (String[]) null);
     }
 
+    public OCUpload getUploadByRemotePath(String remotePath){
+        OCUpload result = null;
+        Cursor cursor = getDB().query(
+            ProviderTableMeta.CONTENT_URI_UPLOADS,
+            null,
+            ProviderTableMeta.UPLOADS_REMOTE_PATH + "=?",
+            new String[]{remotePath},
+            ProviderTableMeta.UPLOADS_REMOTE_PATH+ " ASC");
+
+        if (cursor != null) {
+            if (cursor.moveToFirst()) {
+                result = createOCUploadFromCursor(cursor);
+            }
+        }
+        Log_OC.d(TAG, "Retrieve job " + result + " for remote path " + remotePath);
+        return result;
+    }
+
     public @Nullable
     OCUpload getUploadById(long id) {
         OCUpload result = null;
@@ -556,6 +574,13 @@ public class UploadsStorageManager extends Observable {
                               ProviderTableMeta.UPLOADS_ACCOUNT_NAME + "== ?", user.getAccountName());
     }
 
+    public OCUpload[] getPausedUploadsForCurrentAccount() {
+        User user = currentAccountProvider.getUser();
+
+        return getUploads(ProviderTableMeta.UPLOADS_STATUS + "==" + UploadStatus.UPLOAD_PAUSED.value + AND +
+                              ProviderTableMeta.UPLOADS_ACCOUNT_NAME + "== ?", user.getAccountName());
+    }
+
     /**
      * Get all uploads which where successfully completed.
      */
@@ -641,6 +666,21 @@ public class UploadsStorageManager extends Observable {
         return deleted;
     }
 
+    public long clearPausedUploads() {
+        User user = currentAccountProvider.getUser();
+        final long deleted = getDB().delete(
+            ProviderTableMeta.CONTENT_URI_UPLOADS,
+            ProviderTableMeta.UPLOADS_STATUS + "==" + UploadStatus.UPLOAD_PAUSED.value + AND +
+                ProviderTableMeta.UPLOADS_ACCOUNT_NAME + "== ?", new String[]{user.getAccountName()}
+                                           );
+
+        Log_OC.d(TAG, "delete all successful uploads");
+        if (deleted > 0) {
+            notifyObserversNow();
+        }
+        return deleted;
+    }
+
     /**
      * Updates the persistent upload database with upload result.
      */
@@ -675,6 +715,17 @@ public class UploadsStorageManager extends Observable {
                 );
             }
         }
+    }
+
+    public void pauseUpload(OCUpload upload){
+        Log_OC.d(TAG, "pauseUpload pause upload: " + upload);
+        updateUploadStatus(
+            upload.getUploadId(),
+            UploadStatus.UPLOAD_PAUSED,
+            UploadResult.INDIVIDUAL_PAUSED,
+            upload.getRemotePath(),
+            upload.getLocalPath()
+                          );
     }
 
     /**
@@ -759,7 +810,12 @@ public class UploadsStorageManager extends Observable {
         /**
          * Upload was successful.
          */
-        UPLOAD_SUCCEEDED(2);
+        UPLOAD_SUCCEEDED(2),
+
+        /**
+         * Upload was paused.
+         */
+        UPLOAD_PAUSED(3);
 
         private final int value;
 
@@ -775,6 +831,8 @@ public class UploadsStorageManager extends Observable {
                     return UPLOAD_FAILED;
                 case 2:
                     return UPLOAD_SUCCEEDED;
+                case 3:
+                    return UPLOAD_PAUSED;
             }
             return null;
         }

@@ -32,6 +32,8 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.text.format.DateUtils;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.PopupMenu;
@@ -43,6 +45,7 @@ import com.nextcloud.client.account.UserAccountManager;
 import com.nextcloud.client.core.Clock;
 import com.nextcloud.client.device.PowerManagementService;
 import com.nextcloud.client.network.ConnectivityService;
+import com.nextcloud.client.preferences.AppPreferences;
 import com.nextcloud.java.util.Optional;
 import com.owncloud.android.MainApp;
 import com.owncloud.android.R;
@@ -89,7 +92,9 @@ public class UploadListAdapter extends SectionedRecyclerViewAdapter<SectionedVie
     private Clock clock;
     private UploadGroup[] uploadGroups;
     private boolean showUser;
+    private AppPreferences preferences;
     private final  ViewThemeUtils viewThemeUtils;
+
 
     @Override
     public int getSectionCount() {
@@ -116,44 +121,95 @@ public class UploadListAdapter extends SectionedRecyclerViewAdapter<SectionedVie
 
         switch (group.type) {
             case CURRENT:
+                headerViewHolder.binding.uploadListAction.setVisibility(View.INVISIBLE);
             case FINISHED:
                 headerViewHolder.binding.uploadListAction.setImageResource(R.drawable.ic_close);
+                headerViewHolder.binding.uploadListAction.setVisibility(View.VISIBLE);
                 break;
-            case FAILED:
-                headerViewHolder.binding.uploadListAction.setImageResource(R.drawable.ic_sync);
+            case FAILED: case PAUSED:
+                headerViewHolder.binding.uploadListAction.setImageResource(R.drawable.ic_dots_vertical);
+                headerViewHolder.binding.uploadListAction.setVisibility(View.VISIBLE);
                 break;
+
         }
 
         headerViewHolder.binding.uploadListAction.setOnClickListener(v -> {
+            PopupMenu popup;
+            final Optional<User> optionalUser = parentActivity.getUser();
             switch (group.type) {
-                case CURRENT:
-                    FileUploader.FileUploaderBinder uploaderBinder = parentActivity.getFileUploaderBinder();
-
-                    if (uploaderBinder != null) {
-                        for (OCUpload upload : group.getItems()) {
-                            uploaderBinder.cancel(upload);
-                        }
-                    }
-                    break;
                 case FINISHED:
                     uploadsStorageManager.clearSuccessfulUploads();
+                    loadUploadItemsFromDb();
                     break;
                 case FAILED:
-                    new Thread(() -> FileUploader.retryFailedUploads(
-                        parentActivity,
-                        uploadsStorageManager,
-                        connectivityService,
-                        accountManager,
-                        powerManagementService
-                                                                    )).start();
-                    break;
+                    popup = new PopupMenu(MainApp.getAppContext(), headerViewHolder.binding.uploadListAction);
+                    popup.inflate(R.menu.upload_list_failed_options);
+                    popup.setOnMenuItemClickListener(i -> {
+                        int itemId = i.getItemId();
 
+                        if (itemId == R.id.action_upload_list_failed_clear) {
+                            uploadsStorageManager.clearFailedButNotDelayedUploads();
+                            loadUploadItemsFromDb();
+                        } else {
+
+                            new Thread(() -> {
+                                FileUploader.retryFailedUploads(
+                                    parentActivity,
+                                    uploadsStorageManager,
+                                    connectivityService,
+                                    accountManager,
+                                    powerManagementService);
+                                parentActivity.runOnUiThread(() -> {
+                                    loadUploadItemsFromDb();
+                                });
+                            }).start();
+
+
+                        }
+
+                        return true;
+                    });
+                    popup.show();
+                    break;
+                case PAUSED:
+                    popup = new PopupMenu(MainApp.getAppContext(), headerViewHolder.binding.uploadListAction);
+                    popup.inflate(R.menu.upload_list_paused_options);
+
+                    // Disable resume if global pause
+                    MenuItem pauseButtonMenu = popup.getMenu().findItem(R.id.action_upload_list_paused_resume);
+                    if (pauseButtonMenu != null) {
+                        if (preferences.getGlobalPaused()) pauseButtonMenu.setEnabled(false);
+                        else pauseButtonMenu.setEnabled(true);
+                    }
+
+                    popup.setOnMenuItemClickListener(i -> {
+                        int itemId = i.getItemId();
+
+                        if (itemId == R.id.action_upload_list_paused_clear) {
+                            uploadsStorageManager.clearPausedUploads();
+                            loadUploadItemsFromDb();
+                        } else {
+                            if (optionalUser.isPresent()) {
+                                new Thread(() -> {
+                                    FileUploader.resumeUploads(
+                                        parentActivity.getApplicationContext(),
+                                        optionalUser.get(),
+                                        group.getItems());
+                                    parentActivity.runOnUiThread(() -> {
+                                        loadUploadItemsFromDb();
+                                    });
+                                }).start();
+                            }
+                        }
+
+                        return true;
+                    });
+                    popup.show();
+                    break;
                 default:
                     // do nothing
                     break;
             }
-
-            loadUploadItemsFromDb();
         });
     }
 
@@ -169,7 +225,8 @@ public class UploadListAdapter extends SectionedRecyclerViewAdapter<SectionedVie
                              final ConnectivityService connectivityService,
                              final PowerManagementService powerManagementService,
                              final Clock clock,
-                             final ViewThemeUtils viewThemeUtils) {
+                             final ViewThemeUtils viewThemeUtils,
+                             final AppPreferences preferences) {
         Log_OC.d(TAG, "UploadListAdapter");
         this.parentActivity = fileActivity;
         this.uploadsStorageManager = uploadsStorageManager;
@@ -179,8 +236,10 @@ public class UploadListAdapter extends SectionedRecyclerViewAdapter<SectionedVie
         this.powerManagementService = powerManagementService;
         this.clock = clock;
         this.viewThemeUtils = viewThemeUtils;
+        this.preferences = preferences;
 
-        uploadGroups = new UploadGroup[3];
+
+        uploadGroups = new UploadGroup[4];
 
         shouldShowHeadersForEmptySections(false);
 
@@ -205,6 +264,14 @@ public class UploadListAdapter extends SectionedRecyclerViewAdapter<SectionedVie
             @Override
             public void refresh() {
                 fixAndSortItems(uploadsStorageManager.getFinishedUploadsForCurrentAccount());
+            }
+        };
+
+        uploadGroups[3] = new UploadGroup(Type.PAUSED,
+                                          parentActivity.getString(R.string.uploads_view_group_paused_uploads)) {
+            @Override
+            public void refresh() {
+                fixAndSortItems(uploadsStorageManager.getPausedUploadsForCurrentAccount());
             }
         };
 
@@ -310,7 +377,7 @@ public class UploadListAdapter extends SectionedRecyclerViewAdapter<SectionedVie
                 itemViewHolder.binding.uploadProgressBar.invalidate();
                 break;
 
-            case UPLOAD_FAILED:
+            case UPLOAD_FAILED: case UPLOAD_PAUSED:
                 itemViewHolder.binding.uploadDate.setVisibility(View.GONE);
                 break;
 
@@ -323,17 +390,17 @@ public class UploadListAdapter extends SectionedRecyclerViewAdapter<SectionedVie
         // bind listeners to perform actions
         if (item.getUploadStatus() == UploadStatus.UPLOAD_IN_PROGRESS) {
             // Cancel
-            itemViewHolder.binding.uploadRightButton.setImageResource(R.drawable.ic_action_cancel_grey);
+            itemViewHolder.binding.uploadRightButton.setImageResource(android.R.drawable.ic_media_pause);
             itemViewHolder.binding.uploadRightButton.setVisibility(View.VISIBLE);
             itemViewHolder.binding.uploadRightButton.setOnClickListener(v -> {
                 FileUploader.FileUploaderBinder uploaderBinder = parentActivity.getFileUploaderBinder();
                 if (uploaderBinder != null) {
-                    uploaderBinder.cancel(item);
+                    uploaderBinder.pause(item);
                     loadUploadItemsFromDb();
                 }
             });
 
-        } else if (item.getUploadStatus() == UploadStatus.UPLOAD_FAILED) {
+        } else if (item.getUploadStatus() == UploadStatus.UPLOAD_FAILED || item.getUploadStatus() == UploadStatus.UPLOAD_PAUSED) {
             if (item.getLastResult() == UploadResult.SYNC_CONFLICT) {
                 itemViewHolder.binding.uploadRightButton.setImageResource(R.drawable.ic_dots_vertical);
                 itemViewHolder.binding.uploadRightButton.setOnClickListener(view -> {
@@ -388,6 +455,12 @@ public class UploadListAdapter extends SectionedRecyclerViewAdapter<SectionedVie
             });
         } else if (item.getUploadStatus() == UploadStatus.UPLOAD_SUCCEEDED){
             itemViewHolder.binding.uploadListItemLayout.setOnClickListener(v -> onUploadedItemClick(item));
+        } else if (item.getUploadStatus() == UploadStatus.UPLOAD_PAUSED){
+            Optional<User> user = accountManager.getUser(item.getAccountName());
+            itemViewHolder.binding.uploadListItemLayout.setOnClickListener(v -> {
+                FileUploader.resumeUpload(parentActivity, user.get(), item);
+                loadUploadItemsFromDb();
+            });
         }
 
 
@@ -622,7 +695,7 @@ public class UploadListAdapter extends SectionedRecyclerViewAdapter<SectionedVie
                 status = parentActivity.getString(R.string.uploads_view_upload_status_succeeded);
                 break;
 
-            case UPLOAD_FAILED:
+            case UPLOAD_FAILED: case UPLOAD_PAUSED:
                 status = getUploadFailedStatusText(upload.getLastResult());
                 break;
 
@@ -710,6 +783,12 @@ public class UploadListAdapter extends SectionedRecyclerViewAdapter<SectionedVie
                 break;
             case LOCAL_STORAGE_NOT_COPIED:
                 status = parentActivity.getString(R.string.upload_local_storage_not_copied);
+                break;
+            case INDIVIDUAL_PAUSED:
+                status = parentActivity.getString(R.string.upload_individual_pause);
+                break;
+            case GLOBAL_PAUSED:
+                status = parentActivity.getString(R.string.upload_global_pause);
                 break;
             default:
                 status = parentActivity.getString(R.string.upload_unknown_error);
@@ -825,7 +904,7 @@ public class UploadListAdapter extends SectionedRecyclerViewAdapter<SectionedVie
     }
 
     enum Type {
-        CURRENT, FINISHED, FAILED
+        CURRENT, FINISHED, FAILED, PAUSED
     }
 
     abstract class UploadGroup implements Refresh {

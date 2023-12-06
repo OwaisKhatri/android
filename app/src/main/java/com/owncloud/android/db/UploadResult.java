@@ -44,7 +44,9 @@ public enum UploadResult {
     OLD_ANDROID_API(18),
     SYNC_CONFLICT(19),
     CANNOT_CREATE_FILE(20),
-    LOCAL_STORAGE_NOT_COPIED(21);
+    LOCAL_STORAGE_NOT_COPIED(21),
+    INDIVIDUAL_PAUSED(22),
+    GLOBAL_PAUSED(23);
 
     private final int value;
 
@@ -104,6 +106,10 @@ public enum UploadResult {
                 return CANNOT_CREATE_FILE;
             case 21:
                 return LOCAL_STORAGE_NOT_COPIED;
+            case 22:
+                return INDIVIDUAL_PAUSED;
+            case 23:
+                return GLOBAL_PAUSED;
         }
         return UNKNOWN;
     }

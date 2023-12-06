@@ -102,6 +102,8 @@ public final class AppPreferencesImpl implements AppPreferences {
     private static final String PREF__CALENDAR_AUTOMATIC_BACKUP = "calendar_automatic_backup";
     private static final String PREF__CALENDAR_LAST_BACKUP = "calendar_last_backup";
 
+    private static final String PREF__GLOBAL_PAUSE_STATE = "global_pause_state";
+
     private static final String PREF__PDF_ZOOM_TIP_SHOWN = "pdf_zoom_tip_shown";
     private static final String PREF__MEDIA_FOLDER_LAST_PATH = "media_folder_last_path";
 
@@ -716,6 +718,16 @@ public final class AppPreferencesImpl implements AppPreferences {
     @Override
     public void setCalendarLastBackup(long timestamp) {
         preferences.edit().putLong(PREF__CALENDAR_LAST_BACKUP, timestamp).apply();
+    }
+
+    @Override
+    public boolean getGlobalPaused() {
+        return preferences.getBoolean(PREF__GLOBAL_PAUSE_STATE,false);
+    }
+
+    @Override
+    public void setGlobalPaused(boolean globalPausedState) {
+        preferences.edit().putBoolean(PREF__GLOBAL_PAUSE_STATE, globalPausedState).apply();
     }
 
     @Override

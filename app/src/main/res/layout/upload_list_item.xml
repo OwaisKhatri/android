@@ -132,13 +132,13 @@
 
     <ImageButton
         android:id="@+id/upload_right_button"
-        tools:src="@drawable/ic_action_cancel_grey"
         android:layout_width="@dimen/min_list_item_size"
         android:layout_height="@dimen/standard_list_item_size"
         android:layout_gravity="center|end"
         android:background="@android:color/transparent"
         android:contentDescription="@string/upload_item_action_button"
         android:paddingStart="@dimen/standard_double_padding"
-        android:paddingEnd="@dimen/zero" />
+        android:paddingEnd="@dimen/zero"
+        tools:src="@android:drawable/ic_media_pause" />
 
 </LinearLayout>

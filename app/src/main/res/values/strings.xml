@@ -150,6 +150,7 @@
     <string name="uploads_view_group_current_uploads">Current</string>
     <string name="uploads_view_group_failed_uploads">Failed/pending restart</string>
     <string name="uploads_view_group_finished_uploads">Uploaded</string>
+    <string name="uploads_view_group_paused_uploads">Paused</string>
     <string name="uploads_view_upload_status_succeeded">Completed</string>
     <string name="uploads_view_upload_status_cancelled">Cancelled</string>
     <string name="uploads_view_upload_status_failed_connection_error">Connection error</string>
@@ -831,9 +832,15 @@
     <string name="upload_sync_conflict">Sync conflict, please resolve manually</string>
     <string name="upload_cannot_create_file">Cannot create local file</string>
     <string name="upload_local_storage_not_copied">File could not be copied to local storage</string>
+    <string name="upload_individual_pause">Upload for file was paused</string>
+    <string name="upload_global_pause">Upload for all files is paused</string>
     <string name="upload_quota_exceeded">Storage quota exceeded</string>
     <string name="host_not_available">Server not available</string>
     <string name="delete_entries">Delete entries</string>
+    <string name="upload_action_failed_retry">Retry failed uploads</string>
+    <string name="upload_action_failed_clear">Clear failed uploads</string>
+    <string name="upload_action_paused_resume">Resume paused uploads</string>
+    <string name="upload_action_paused_clear">Clear paused uploads</string>
     <string name="dismiss_notification_description">Dismiss notification</string>
     <string name="action_empty_notifications">Clear all notifications</string>
     <string name="timeout_richDocuments">Loading is taking longer than expected</string>

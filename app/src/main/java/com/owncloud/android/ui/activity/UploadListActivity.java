@@ -43,6 +43,7 @@ import com.nextcloud.client.core.Clock;
 import com.nextcloud.client.device.PowerManagementService;
 import com.nextcloud.client.jobs.BackgroundJobManager;
 import com.nextcloud.client.network.ConnectivityService;
+import com.nextcloud.client.preferences.AppPreferences;
 import com.nextcloud.client.utils.Throttler;
 import com.owncloud.android.R;
 import com.owncloud.android.databinding.UploadListLayoutBinding;
@@ -119,6 +120,10 @@ public class UploadListActivity extends FileActivity {
         return intent;
     }
 
+    public AppPreferences getPreferences(){
+        return preferences;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -164,7 +169,8 @@ public class UploadListActivity extends FileActivity {
                                                   connectivityService,
                                                   powerManagementService,
                                                   clock,
-                                                  viewThemeUtils);
+                                                  viewThemeUtils,
+                                                  preferences);
 
         final GridLayoutManager lm = new GridLayoutManager(this, 1);
         uploadListAdapter.setLayoutManager(lm);
@@ -248,12 +254,21 @@ public class UploadListActivity extends FileActivity {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.activity_upload_list, menu);
 
+        if (menu.getItem(0).getItemId() == R.id.action_toogle_global_pause){
+            if (preferences.getGlobalPaused()){
+                menu.getItem(0).setIcon(android.R.drawable.ic_media_play);
+            }else{
+                menu.getItem(0).setIcon(android.R.drawable.ic_media_pause);
+            }
+
+        }
+
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        boolean retval = true;
+
         int itemId = item.getItemId();
 
         if (itemId == android.R.id.home) {
@@ -262,14 +277,19 @@ public class UploadListActivity extends FileActivity {
             } else {
                 openDrawer();
             }
-        } else if (itemId == R.id.action_clear_failed_uploads) {
-            uploadsStorageManager.clearFailedButNotDelayedUploads();
-            uploadListAdapter.loadUploadItemsFromDb();
-        } else {
-            retval = super.onOptionsItemSelected(item);
+        } else if (itemId == R.id.action_toogle_global_pause) {
+            preferences.setGlobalPaused(!preferences.getGlobalPaused());
+            if (preferences.getGlobalPaused()){
+                item.setIcon(android.R.drawable.ic_media_play);
+                showPauseInfoBox();
+            }else{
+                item.setIcon(android.R.drawable.ic_media_pause);
+                hidePauseInfoBox();
+            }
+
         }
 
-        return retval;
+        return true;
     }
 
     @Override

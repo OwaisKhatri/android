@@ -1046,6 +1046,37 @@ public class FileUploader extends Service
     public static void retryUpload(@NonNull Context context,
                                    @NonNull User user,
                                    @NonNull OCUpload upload) {
+        retryUpload(context,user,upload,false);
+    }
+
+    /**
+     * Resume a paused {@link OCUpload} identified by {@link OCUpload#getRemotePath()}
+     */
+    public static void resumeUpload(@NonNull Context context,
+                                    @NonNull User user,
+                                    @NonNull OCUpload upload) {
+
+        retryUpload(context,user,upload,true);
+    }
+
+    public static void resumeUploads(@NonNull Context context,
+                                     @NonNull User user,
+                                     @NonNull OCUpload[] uploads) {
+        for (OCUpload upload : uploads) {
+            resumeUpload(context,user,upload);
+        }
+    }
+
+    /**
+     * Retry a failed {@link OCUpload} identified by {@link OCUpload#getRemotePath()} and resume paused if resume is set to true
+     */
+    public static void retryUpload(@NonNull Context context,
+                                   @NonNull User user,
+                                   @NonNull OCUpload upload,
+                                   @NonNull boolean resume) {
+        if(upload.getLastResult() == UploadResult.INDIVIDUAL_PAUSED && !resume){
+            return;
+        }
         Intent i = new Intent(context, FileUploader.class);
         i.putExtra(FileUploader.KEY_RETRY, true);
         i.putExtra(FileUploader.KEY_USER, user);
@@ -1175,13 +1206,38 @@ public class FileUploader extends Service
          *
          * @param accountName Local name of an ownCloud account where the remote file will be stored.
          * @param remotePath  Remote target of the upload
-         * @param resultCode  Setting result code will pause rather than cancel the job
+         * @param resultCode  Setting result code will pause rather than cancel the job (only works with FileUploader Service)
          */
         public void cancel(String accountName, String remotePath, @Nullable ResultCode resultCode) {
-            // Cancel for Android version >= Android 11
+
+            // need to update now table in mUploadsStorageManager,
+            // since the operation will not get to be run by FileUploader#uploadFile
+
+            if (resultCode == null || useFilesUploadWorker(getApplicationContext())){
+                // removing must run before stopCurrentUploadProcess because else canceled file upload maybe be restarted
+                mUploadsStorageManager.removeUpload(accountName, remotePath);
+            }
+            UploadFileOperation upload = stopCurrentUploadProcess(accountName,remotePath,resultCode);
+            if (resultCode != null && upload != null) {
+                mUploadsStorageManager.updateDatabaseUploadResult(new RemoteOperationResult(resultCode), upload);
+                notifyUploadResult(upload, new RemoteOperationResult(resultCode));
+            }
+
+
+        }
+
+        /**
+         * Stops the current upload service if necessary, stops {@link FilesUploadWorker} always
+         *
+         * @param accountName Local name of an ownCloud account where the remote file will be stored.
+         * @param remotePath  Remote target of the upload
+         * @param resultCode  Result code to cancel {@link UploadFileOperation} with if service (not working for {@link FilesUploadWorker})
+         */
+        private UploadFileOperation stopCurrentUploadProcess(String accountName, String remotePath, @Nullable ResultCode resultCode){
             if (useFilesUploadWorker(getApplicationContext())){
+                // Cancel for Android version >= Android 11
                 try{
-                    new FilesUploadHelper().cancelFileUpload(remotePath, accountManager.getUser(accountName).get());
+                    new FilesUploadHelper().restartUploadJob(accountManager.getUser(accountName).get());
                 }catch(NoSuchElementException e){
                     Log_OC.e(TAG,"Error cancelling current upload because user does not exist!");
                 }
@@ -1197,16 +1253,11 @@ public class FileUploader extends Service
 
                 if (upload != null) {
                     upload.cancel(resultCode);
-                    // need to update now table in mUploadsStorageManager,
-                    // since the operation will not get to be run by FileUploader#uploadFile
-                    if (resultCode != null) {
-                        mUploadsStorageManager.updateDatabaseUploadResult(new RemoteOperationResult(resultCode), upload);
-                        notifyUploadResult(upload, new RemoteOperationResult(resultCode));
-                    } else {
-                        mUploadsStorageManager.removeUpload(accountName, remotePath);
-                    }
+                    return upload;
                 }
             }
+            return null;
+
         }
 
         /**
@@ -1228,6 +1279,15 @@ public class FileUploader extends Service
                 }
             }
 
+        }
+
+        public void pause(String accountName, String remotePath){
+            mUploadsStorageManager.pauseUpload(mUploadsStorageManager.getUploadByRemotePath(remotePath));
+            stopCurrentUploadProcess(accountName,remotePath, null);
+        }
+
+        public void pause(OCUpload upload){
+            pause(upload.getAccountName(),upload.getRemotePath());
         }
 
         public void clearListeners() {
